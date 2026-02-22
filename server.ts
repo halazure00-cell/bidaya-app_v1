@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database('bidayat.db');
+const db = new Database(process.env.VERCEL ? '/tmp/bidayat.db' : 'bidayat.db');
 const app = express();
 const PORT = 3000;
 
@@ -482,9 +482,14 @@ async function startServer() {
     app.use(express.static('dist'));
   }
 
+  // Start server only if not in Vercel environment
+if (!process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
+}
 
 startServer();
+
+export default app;
