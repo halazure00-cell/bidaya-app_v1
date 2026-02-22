@@ -476,10 +476,6 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    // In production, serve static files (if built)
-    // For this environment, we rely on dev mode mostly, but good practice
-    app.use(express.static('dist'));
   }
 
   // Start server only if not in Vercel environment
