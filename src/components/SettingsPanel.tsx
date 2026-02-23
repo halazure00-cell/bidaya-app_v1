@@ -42,7 +42,7 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
     if (permission === 'granted') {
       new Notification('Bidayat OS', {
         body: 'Notifikasi berhasil diaktifkan. Anda akan menerima pengingat waktu sholat.',
-        icon: '/pwa-192x192.png'
+        icon: '/icon.svg'
       });
     }
   };

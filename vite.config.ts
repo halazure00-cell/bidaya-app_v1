@@ -21,14 +21,20 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           icons: [
             {
-              src: 'https://picsum.photos/seed/bidayat192/192/192',
+              src: '/icon.svg',
               sizes: '192x192',
-              type: 'image/png'
+              type: 'image/svg+xml'
             },
             {
-              src: 'https://picsum.photos/seed/bidayat512/512/512',
+              src: '/icon.svg',
               sizes: '512x512',
-              type: 'image/png'
+              type: 'image/svg+xml'
+            },
+            {
+              src: '/icon.svg',
+              sizes: '512x512',
+              type: 'image/svg+xml',
+              purpose: 'any maskable'
             }
           ]
         }
