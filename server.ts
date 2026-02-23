@@ -4,7 +4,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-let db: Database.Database;
+const app = express();
+const PORT = 3000;
+
+app.use(express.json());
+
+let db: Database.Database | null = null;
+let memoryDb: any = null;
+
 try {
   db = new Database(process.env.VERCEL ? '/tmp/bidayat.db' : 'bidayat.db');
   
@@ -345,37 +352,100 @@ try {
     protocols.forEach(p => insertProtocol.run(p));
   }
 } catch (error) {
-  console.error('Failed to initialize database:', error);
+  console.error('Failed to initialize SQLite database, falling back to in-memory store:', error);
+  
+  // In-memory fallback for Vercel if SQLite fails
+  memoryDb = {
+    tasks: [
+      { id: 't1', title: 'Adab Bangun Tidur', arabic: 'آداب الاستيقاظ من النوم', description: 'Hendaknya engkau bangun sebelum terbit fajar...', timeOfDay: 'Morning', completed: 0, locked: 0 },
+      { id: 't2', title: 'Adab Masuk Kamar Kecil', arabic: 'آداب دخول الخلاء', description: 'Dahulukan kaki kiri saat masuk...', timeOfDay: 'Morning', completed: 0, locked: 0 },
+      { id: 't3', title: 'Adab Wudhu', arabic: 'آداب الوضوء', description: 'Jangan sekadar membasuh anggota tubuh...', timeOfDay: 'Morning', completed: 0, locked: 0 },
+      { id: 't4', title: 'Adab Pergi ke Masjid', arabic: 'آداب الخروج إلى المسجد', description: 'Berjalanlah dengan tenang...', timeOfDay: 'Morning', completed: 0, locked: 0 },
+      { id: 't5', title: 'Adab Masuk Masjid', arabic: 'آداب دخول المسجد', description: 'Masuklah dengan kaki kanan...', timeOfDay: 'Morning', completed: 0, locked: 0 },
+      { id: 't6', title: 'Adab Setelah Terbit Matahari', arabic: 'آداب ما بعد طلوع الشمس', description: 'Jangan habiskan waktumu dengan sia-sia...', timeOfDay: 'Afternoon', completed: 0, locked: 0 },
+      { id: 't7', title: 'Persiapan Shalat', arabic: 'الاستعداد لسائر الصلوات', description: 'Bersiaplah sebelum waktu shalat tiba...', timeOfDay: 'Afternoon', completed: 0, locked: 0 },
+      { id: 't8', title: 'Adab Shalat', arabic: 'آداب الصلاة', description: 'Shalatlah dengan khusyuk...', timeOfDay: 'Evening', completed: 0, locked: 0 },
+      { id: 't9', title: 'Adab Hari Jumat', arabic: 'آداب الجمعة', description: 'Hari Jumat adalah hari raya mingguan...', timeOfDay: 'Evening', completed: 0, locked: 0 },
+      { id: 't10', title: 'Adab Tidur', arabic: 'آداب النوم', description: 'Tidurlah dalam keadaan suci...', timeOfDay: 'Night', completed: 0, locked: 0 }
+    ],
+    bodyScans: [
+      { id: 'b1', part: 'Mata', arabic: 'العين', errorCommitted: 0 },
+      { id: 'b2', part: 'Telinga', arabic: 'الأذن', errorCommitted: 0 },
+      { id: 'b3', part: 'Lisan', arabic: 'اللسان', errorCommitted: 0 },
+      { id: 'b4', part: 'Perut', arabic: 'البطن', errorCommitted: 0 },
+      { id: 'b5', part: 'Kemaluan', arabic: 'الفرج', errorCommitted: 0 },
+      { id: 'b6', part: 'Tangan', arabic: 'اليد', errorCommitted: 0 },
+      { id: 'b7', part: 'Kaki', arabic: 'الرجل', errorCommitted: 0 }
+    ],
+    heartDiseases: [
+      { id: 'h1', name: 'Hasad (Dengki)', arabic: 'الحسد', level: 1, description: 'Menginginkan hilangnya nikmat dari orang lain.' },
+      { id: 'h2', name: 'Riya\' (Pamer)', arabic: 'الرياء', level: 1, description: 'Beramal untuk dilihat dan dipuji manusia.' },
+      { id: 'h3', name: 'Ujub (Bangga Diri)', arabic: 'العجب', level: 1, description: 'Merasa kagum pada diri sendiri dan melupakan karunia Allah.' }
+    ],
+    wiridLogs: [
+      { id: 'w1', name: 'Istighfar', arabic: 'أَسْتَغْفِرُ ٱللَّهَ', description: 'Memohon ampunan kepada Allah SWT...', count: 0, target: 100, lastUpdated: new Date().toISOString() },
+      { id: 'w2', name: 'Shalawat', arabic: 'ٱللَّٰهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ', description: 'Bershalawat kepada Nabi Muhammad SAW...', count: 0, target: 100, lastUpdated: new Date().toISOString() },
+      { id: 'w3', name: 'Tahlil', arabic: 'لَا إِلَٰهَ إِلَّا ٱللَّهُ', description: 'Kalimat tauhid...', count: 0, target: 100, lastUpdated: new Date().toISOString() }
+    ],
+    networkProtocols: [
+      { id: 'np1', category: 'Vertical', target: 'Allah', title: 'Khusyu\' (Fokus)', arabic: 'الخشوع', description: 'Menghadirkan hati...', completed: 0 },
+      { id: 'np2', category: 'Vertical', target: 'Allah', title: 'Tawakkal (Berserah)', arabic: 'التوكل', description: 'Menyerahkan segala urusan...', completed: 0 },
+      { id: 'np3', category: 'Horizontal', target: 'Parents', title: 'Birrul Walidain', arabic: 'بر الوالدين', description: 'Berbuat baik...', completed: 0 },
+      { id: 'np4', category: 'Horizontal', target: 'Scholars', title: 'Ta\'zim (Memuliakan)', arabic: 'التعظيم', description: 'Menghormati guru...', completed: 0 },
+      { id: 'np5', category: 'Horizontal', target: 'General', title: 'Tawadhu (Rendah Hati)', arabic: 'التواضع', description: 'Tidak merasa lebih baik...', completed: 0 },
+      { id: 'np6', category: 'Horizontal', target: 'Ignorant', title: 'Tarkul Mira\' (Hindari Debat)', arabic: 'ترك المراء', description: 'Menghindari perdebatan...', completed: 0 }
+    ],
+    prayerLogs: []
+  };
 }
 
 // API Routes
 app.get('/api/state', (req, res) => {
-  if (!db) {
+  if (!db && !memoryDb) {
     return res.status(500).json({ error: 'Database failed to initialize' });
   }
-  const tasks = db.prepare('SELECT * FROM tasks').all().map((t: any) => ({ ...t, completed: Boolean(t.completed), locked: Boolean(t.locked) }));
-  const bodyScans = db.prepare('SELECT * FROM body_scans').all().map((b: any) => ({ ...b, errorCommitted: Boolean(b.errorCommitted) }));
-  const heartDiseases = db.prepare('SELECT * FROM heart_diseases').all();
-  const wiridLogs = db.prepare('SELECT * FROM wirid_logs').all();
-  const networkProtocols = db.prepare('SELECT * FROM network_protocols').all().map((p: any) => ({ ...p, completed: Boolean(p.completed) }));
+
+  if (memoryDb) {
+    const today = new Date().toISOString().split('T')[0];
+    let prayerLog = memoryDb.prayerLogs.find((p: any) => p.date === today);
+    if (!prayerLog) {
+      prayerLog = { date: today, subuh: 0, dzuhur: 0, ashar: 0, maghrib: 0, isya: 0 };
+      memoryDb.prayerLogs.push(prayerLog);
+    }
+    return res.json({
+      tasks: memoryDb.tasks.map((t: any) => ({ ...t, completed: Boolean(t.completed), locked: Boolean(t.locked) })),
+      bodyScans: memoryDb.bodyScans.map((b: any) => ({ ...b, errorCommitted: Boolean(b.errorCommitted) })),
+      heartDiseases: memoryDb.heartDiseases,
+      wiridLogs: memoryDb.wiridLogs,
+      networkProtocols: memoryDb.networkProtocols.map((p: any) => ({ ...p, completed: Boolean(p.completed) })),
+      todayPrayer: prayerLog,
+      prayerStats: memoryDb.prayerLogs.slice(-30)
+    });
+  }
+
+  const tasks = db!.prepare('SELECT * FROM tasks').all().map((t: any) => ({ ...t, completed: Boolean(t.completed), locked: Boolean(t.locked) }));
+  const bodyScans = db!.prepare('SELECT * FROM body_scans').all().map((b: any) => ({ ...b, errorCommitted: Boolean(b.errorCommitted) }));
+  const heartDiseases = db!.prepare('SELECT * FROM heart_diseases').all();
+  const wiridLogs = db!.prepare('SELECT * FROM wirid_logs').all();
+  const networkProtocols = db!.prepare('SELECT * FROM network_protocols').all().map((p: any) => ({ ...p, completed: Boolean(p.completed) }));
   
   // Get today's prayer log
   const today = new Date().toISOString().split('T')[0];
-  let prayerLog = db.prepare('SELECT * FROM prayer_logs WHERE date = ?').get(today);
+  let prayerLog = db!.prepare('SELECT * FROM prayer_logs WHERE date = ?').get(today);
   
   if (!prayerLog) {
     // Create default if not exists
     try {
-      db.prepare('INSERT INTO prayer_logs (date) VALUES (?)').run(today);
+      db!.prepare('INSERT INTO prayer_logs (date) VALUES (?)').run(today);
       prayerLog = { date: today, subuh: 0, dzuhur: 0, ashar: 0, maghrib: 0, isya: 0 };
     } catch (e) {
       // Handle race condition if insert fails
-      prayerLog = db.prepare('SELECT * FROM prayer_logs WHERE date = ?').get(today);
+      prayerLog = db!.prepare('SELECT * FROM prayer_logs WHERE date = ?').get(today);
     }
   }
 
   // Get last 30 days of prayer logs for stats
-  const prayerStats = db.prepare('SELECT * FROM prayer_logs ORDER BY date DESC LIMIT 30').all();
+  const prayerStats = db!.prepare('SELECT * FROM prayer_logs ORDER BY date DESC LIMIT 30').all();
 
   res.json({
     tasks,
@@ -389,8 +459,18 @@ app.get('/api/state', (req, res) => {
 });
 
 app.post('/api/network-protocols/:id/toggle', (req, res) => {
-  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const { id } = req.params;
+  
+  if (memoryDb) {
+    const protocol = memoryDb.networkProtocols.find((p: any) => p.id === id);
+    if (protocol) {
+      protocol.completed = protocol.completed ? 0 : 1;
+      return res.json({ success: true, completed: Boolean(protocol.completed) });
+    }
+    return res.status(404).json({ error: 'Protocol not found' });
+  }
+
+  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const protocol = db.prepare('SELECT completed FROM network_protocols WHERE id = ?').get(id) as { completed: number };
   if (protocol) {
     const newStatus = protocol.completed ? 0 : 1;
@@ -402,17 +482,25 @@ app.post('/api/network-protocols/:id/toggle', (req, res) => {
 });
 
 app.post('/api/prayers/:date', (req, res) => {
-  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const { date } = req.params;
-  const { prayer, status } = req.body; // prayer: 'subuh' | 'dzuhur' etc, status: boolean
+  const { prayer, status } = req.body;
   
+  if (memoryDb) {
+    let prayerLog = memoryDb.prayerLogs.find((p: any) => p.date === date);
+    if (!prayerLog) {
+      prayerLog = { date, subuh: 0, dzuhur: 0, ashar: 0, maghrib: 0, isya: 0 };
+      memoryDb.prayerLogs.push(prayerLog);
+    }
+    prayerLog[prayer] = status ? 1 : 0;
+    return res.json({ success: true });
+  }
+
+  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   try {
-    // Ensure record exists
     const exists = db.prepare('SELECT 1 FROM prayer_logs WHERE date = ?').get(date);
     if (!exists) {
       db.prepare('INSERT INTO prayer_logs (date) VALUES (?)').run(date);
     }
-
     const stmt = db.prepare(`UPDATE prayer_logs SET ${prayer} = ? WHERE date = ?`);
     stmt.run(status ? 1 : 0, date);
     res.json({ success: true });
@@ -423,8 +511,18 @@ app.post('/api/prayers/:date', (req, res) => {
 });
 
 app.post('/api/tasks/:id/toggle', (req, res) => {
-  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const { id } = req.params;
+
+  if (memoryDb) {
+    const task = memoryDb.tasks.find((t: any) => t.id === id);
+    if (task) {
+      task.completed = task.completed ? 0 : 1;
+      return res.json({ success: true, completed: Boolean(task.completed) });
+    }
+    return res.status(404).json({ error: 'Task not found' });
+  }
+
+  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const task = db.prepare('SELECT completed FROM tasks WHERE id = ?').get(id) as { completed: number };
   if (task) {
     const newStatus = task.completed ? 0 : 1;
@@ -436,8 +534,18 @@ app.post('/api/tasks/:id/toggle', (req, res) => {
 });
 
 app.post('/api/body-scans/:id/toggle', (req, res) => {
-  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const { id } = req.params;
+
+  if (memoryDb) {
+    const scan = memoryDb.bodyScans.find((b: any) => b.id === id);
+    if (scan) {
+      scan.errorCommitted = scan.errorCommitted ? 0 : 1;
+      return res.json({ success: true, errorCommitted: Boolean(scan.errorCommitted) });
+    }
+    return res.status(404).json({ error: 'Body scan not found' });
+  }
+
+  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const scan = db.prepare('SELECT errorCommitted FROM body_scans WHERE id = ?').get(id) as { errorCommitted: number };
   if (scan) {
     const newStatus = scan.errorCommitted ? 0 : 1;
@@ -449,9 +557,19 @@ app.post('/api/body-scans/:id/toggle', (req, res) => {
 });
 
 app.post('/api/heart-diseases/:id', (req, res) => {
-  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const { id } = req.params;
   const { level } = req.body;
+
+  if (memoryDb) {
+    const disease = memoryDb.heartDiseases.find((h: any) => h.id === id);
+    if (disease && level >= 1 && level <= 10) {
+      disease.level = level;
+      return res.json({ success: true, level });
+    }
+    return res.status(400).json({ error: 'Invalid level or disease not found' });
+  }
+
+  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   if (level >= 1 && level <= 10) {
     db.prepare('UPDATE heart_diseases SET level = ? WHERE id = ?').run(level, id);
     res.json({ success: true, level });
@@ -461,14 +579,34 @@ app.post('/api/heart-diseases/:id', (req, res) => {
 });
 
 app.post('/api/wirid/:id/update', (req, res) => {
-  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   const { id } = req.params;
   const { count } = req.body;
+
+  if (memoryDb) {
+    const wirid = memoryDb.wiridLogs.find((w: any) => w.id === id);
+    if (wirid) {
+      wirid.count = count;
+      wirid.lastUpdated = new Date().toISOString();
+      return res.json({ success: true, count });
+    }
+    return res.status(404).json({ error: 'Wirid not found' });
+  }
+
+  if (!db) return res.status(500).json({ error: 'Database not initialized' });
   db.prepare('UPDATE wirid_logs SET count = ?, lastUpdated = ? WHERE id = ?').run(count, new Date().toISOString(), id);
   res.json({ success: true, count });
 });
 
 app.post('/api/reset', (req, res) => {
+  if (memoryDb) {
+    memoryDb.tasks.forEach((t: any) => t.completed = 0);
+    memoryDb.bodyScans.forEach((b: any) => b.errorCommitted = 0);
+    memoryDb.heartDiseases.forEach((h: any) => h.level = 1);
+    memoryDb.wiridLogs.forEach((w: any) => w.count = 0);
+    memoryDb.networkProtocols.forEach((p: any) => p.completed = 0);
+    return res.json({ success: true });
+  }
+
   if (!db) return res.status(500).json({ error: 'Database not initialized' });
   db.prepare('UPDATE tasks SET completed = 0').run();
   db.prepare('UPDATE body_scans SET errorCommitted = 0').run();
