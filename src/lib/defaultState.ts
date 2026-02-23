@@ -41,5 +41,13 @@ export const defaultState: BidayatState = {
     { id: 'np6', category: 'Horizontal', target: 'Ignorant', title: 'Tarkul Mira\' (Hindari Debat)', arabic: 'ترك المراء', description: 'Menghindari perdebatan yang tidak bermanfaat, terutama dengan orang bodoh.', completed: false }
   ],
   todayPrayer: null,
-  prayerStats: []
+  prayerStats: [],
+  userStats: {
+    level: 1,
+    xp: 0,
+    streak: 0,
+    totalGoodDeeds: 0,
+    totalSinsAvoided: 0
+  },
+  lastResetDate: new Date().toISOString().split('T')[0]
 };

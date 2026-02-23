@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, CheckSquare, LayoutDashboard, Moon, Sun, RotateCcw, Fingerprint, RotateCw, Sunrise, HandHeart } from 'lucide-react';
+import { Activity, CheckSquare, LayoutDashboard, Moon, Sun, RotateCcw, Fingerprint, RotateCw, Sunrise, HandHeart, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Dashboard from './components/Dashboard';
 import DailyRoutine from './components/DailyRoutine';
@@ -7,13 +7,14 @@ import Scanner from './components/Scanner';
 import Wirid from './components/Wirid';
 import PrayerTracker from './components/PrayerTracker';
 import AdabTracker from './components/AdabTracker';
+import SettingsPanel from './components/SettingsPanel';
 import ConfirmationModal from './components/ConfirmationModal';
 import Toast, { ToastType } from './components/Toast';
 import { BidayatState, PrayerLog } from './types';
 import ErrorBoundary from './components/ErrorBoundary';
-import { store } from './lib/store';
+import { store, addXP } from './lib/store';
 
-type Tab = 'dashboard' | 'routine' | 'scanner' | 'wirid' | 'prayer' | 'adab';
+type Tab = 'dashboard' | 'prayer' | 'routine' | 'scanner' | 'adab' | 'wirid' | 'settings';
 
 export default function App() {
   const [state, setState] = useState<BidayatState | null>(null);
@@ -49,11 +50,18 @@ export default function App() {
     }
   }, [darkMode]);
 
-  const loadState = () => {
+  const loadState = async () => {
     setIsLoading(true);
     try {
-      const localState = store.getState();
-      setState(localState);
+      // Try to sync from Supabase first
+      const syncedState = await store.syncFromSupabase();
+      if (syncedState) {
+        setState(syncedState);
+      } else {
+        // Fallback to local storage
+        const localState = store.getState();
+        setState(localState);
+      }
     } catch (err: any) {
       console.error('Failed to load state:', err);
       setError('Gagal memuat data dari penyimpanan lokal.');
@@ -79,20 +87,43 @@ export default function App() {
   // Handlers to update state locally
   const toggleTask = (id: string) => {
     if (!state) return;
-    const newState = {
+    const task = state.tasks.find(t => t.id === id);
+    const isCompleting = !task?.completed;
+    
+    let newState = {
       ...state,
-      tasks: state.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
+      tasks: state.tasks.map(t => t.id === id ? { ...t, completed: isCompleting } : t)
     };
+
+    if (isCompleting) {
+      newState = addXP(newState, 10);
+      if (newState.userStats) newState.userStats.totalGoodDeeds += 1;
+      showToast('Alhamdulillah, +10 XP', 'success');
+    }
+
     setState(newState);
     store.saveState(newState);
   };
 
   const toggleBodyPart = (id: string) => {
     if (!state) return;
-    const newState = {
+    const scan = state.bodyScans.find(b => b.id === id);
+    const isCommittingError = !scan?.errorCommitted;
+
+    let newState = {
       ...state,
-      bodyScans: state.bodyScans.map(b => b.id === id ? { ...b, errorCommitted: !b.errorCommitted } : b)
+      bodyScans: state.bodyScans.map(b => b.id === id ? { ...b, errorCommitted: isCommittingError } : b)
     };
+
+    if (isCommittingError) {
+      // Penalty or just record it
+      showToast('Astaghfirullah, perbanyak istighfar.', 'error');
+    } else {
+      // Undoing an error, maybe they repented
+      newState = addXP(newState, 5);
+      if (newState.userStats) newState.userStats.totalSinsAvoided += 1;
+    }
+
     setState(newState);
     store.saveState(newState);
   };
@@ -109,10 +140,21 @@ export default function App() {
 
   const updateWirid = (id: string, count: number) => {
     if (!state) return;
-    const newState = {
+    const wirid = state.wiridLogs.find(w => w.id === id);
+    const wasCompleted = wirid ? wirid.count >= wirid.target : false;
+    const isCompleted = wirid ? count >= wirid.target : false;
+
+    let newState = {
       ...state,
       wiridLogs: state.wiridLogs.map(w => w.id === id ? { ...w, count, lastUpdated: new Date().toISOString() } : w)
     };
+
+    if (!wasCompleted && isCompleted) {
+      newState = addXP(newState, 10);
+      if (newState.userStats) newState.userStats.totalGoodDeeds += 1;
+      showToast('Alhamdulillah, Target Wirid Tercapai! +10 XP', 'success');
+    }
+
     setState(newState);
     store.saveState(newState);
   };
@@ -120,21 +162,39 @@ export default function App() {
   const togglePrayer = (prayer: keyof Omit<PrayerLog, 'date'>, status: boolean) => {
     if (!state || !state.todayPrayer) return;
     const val = status ? 1 : 0;
-    const newState = {
+    
+    let newState = {
       ...state,
       todayPrayer: { ...state.todayPrayer, [prayer]: val },
       prayerStats: state.prayerStats?.map(p => p.date === state.todayPrayer!.date ? { ...p, [prayer]: val } : p)
     };
+
+    if (status) {
+      newState = addXP(newState, 20); // Prayers give more XP
+      if (newState.userStats) newState.userStats.totalGoodDeeds += 1;
+      showToast('Alhamdulillah, +20 XP', 'success');
+    }
+
     setState(newState);
     store.saveState(newState);
   };
 
   const toggleProtocol = (id: string) => {
     if (!state) return;
-    const newState = {
+    const protocol = state.networkProtocols.find(p => p.id === id);
+    const isCompleting = !protocol?.completed;
+
+    let newState = {
       ...state,
-      networkProtocols: state.networkProtocols.map(p => p.id === id ? { ...p, completed: !p.completed } : p)
+      networkProtocols: state.networkProtocols.map(p => p.id === id ? { ...p, completed: isCompleting } : p)
     };
+
+    if (isCompleting) {
+      newState = addXP(newState, 15);
+      if (newState.userStats) newState.userStats.totalGoodDeeds += 1;
+      showToast('Alhamdulillah, +15 XP', 'success');
+    }
+
     setState(newState);
     store.saveState(newState);
   };
@@ -188,7 +248,7 @@ export default function App() {
             {error}
           </p>
           <button 
-            onClick={fetchState}
+            onClick={loadState}
             className="mt-8 px-6 py-3 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-500/20 active:scale-95">
             Coba Lagi
           </button>
@@ -210,6 +270,7 @@ export default function App() {
     { id: 'scanner', label: 'Muhasabah', icon: Activity },
     { id: 'adab', label: 'Adab', icon: HandHeart },
     { id: 'wirid', label: 'Wirid', icon: Fingerprint },
+    { id: 'settings', label: 'Pengaturan', icon: Settings },
   ] as const;
 
   return (
@@ -321,6 +382,7 @@ export default function App() {
                 {activeTab === 'scanner' && <Scanner state={state} onToggleBodyPart={toggleBodyPart} onChangeHeartDisease={changeHeartDisease} />}
                 {activeTab === 'adab' && <AdabTracker state={state} onToggleProtocol={toggleProtocol} />}
                 {activeTab === 'wirid' && <Wirid state={state} onUpdateWirid={updateWirid} />}
+                {activeTab === 'settings' && <SettingsPanel state={state} onImport={(newState) => { setState(newState); store.saveState(newState); showToast('Data berhasil diimpor', 'success'); }} />}
               </motion.div>
             </AnimatePresence>
           </div>

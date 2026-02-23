@@ -1,5 +1,5 @@
 import { BidayatState } from '../types';
-import { Battery, BatteryWarning, Flame, ShieldAlert, ShieldCheck, Zap, Heart, RotateCcw, Quote, Bell, X, RefreshCw, Info } from 'lucide-react';
+import { Battery, BatteryWarning, Flame, ShieldAlert, ShieldCheck, Zap, Heart, RotateCcw, Quote, Bell, X, RefreshCw, Info, Star, Award, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { quotes } from '../data/quotes';
@@ -10,6 +10,10 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ state, onReset }: DashboardProps) {
+  const userStats = state.userStats || { level: 1, xp: 0, streak: 0, totalGoodDeeds: 0, totalSinsAvoided: 0 };
+  const xpForNextLevel = Math.pow(userStats.level, 2) * 100;
+  const xpProgress = (userStats.xp / xpForNextLevel) * 100;
+
   // --- Advanced Battery Logic (Cahaya Amal) ---
   
   // 1. Prayer Score (Weight: 30%)
@@ -91,19 +95,39 @@ export default function Dashboard({ state, onReset }: DashboardProps) {
   const [isQuoteVisible, setIsQuoteVisible] = useState(true);
 
   useEffect(() => {
-    const randomIndex = Math.floor(Math.random() * quotes.length);
-    setCurrentQuote(quotes[randomIndex]);
-  }, []);
+    // Nasehat System: Select quote based on highest disease
+    let relevantQuotes = quotes;
+    
+    if (hasad > 6) {
+      relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('hasad') || q.translation.toLowerCase().includes('dengki'));
+    } else if (riya > 6) {
+      relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('riya') || q.translation.toLowerCase().includes('pamer'));
+    } else if (ujub > 6) {
+      relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('ujub') || q.translation.toLowerCase().includes('bangga'));
+    }
+    
+    // Fallback if no specific quotes found
+    if (relevantQuotes.length === 0) relevantQuotes = quotes;
+
+    const randomIndex = Math.floor(Math.random() * relevantQuotes.length);
+    setCurrentQuote(relevantQuotes[randomIndex]);
+  }, [hasad, riya, ujub]);
 
   const refreshQuote = () => {
     setIsQuoteVisible(false);
     setTimeout(() => {
+      let relevantQuotes = quotes;
+      if (hasad > 6) relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('hasad') || q.translation.toLowerCase().includes('dengki'));
+      else if (riya > 6) relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('riya') || q.translation.toLowerCase().includes('pamer'));
+      else if (ujub > 6) relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('ujub') || q.translation.toLowerCase().includes('bangga'));
+      if (relevantQuotes.length === 0) relevantQuotes = quotes;
+
       let newIndex;
       do {
-        newIndex = Math.floor(Math.random() * quotes.length);
-      } while (quotes[newIndex].arabic === currentQuote.arabic && quotes.length > 1);
+        newIndex = Math.floor(Math.random() * relevantQuotes.length);
+      } while (relevantQuotes[newIndex].arabic === currentQuote.arabic && relevantQuotes.length > 1);
       
-      setCurrentQuote(quotes[newIndex]);
+      setCurrentQuote(relevantQuotes[newIndex]);
       setIsQuoteVisible(true);
     }, 300);
   };
@@ -124,6 +148,66 @@ export default function Dashboard({ state, onReset }: DashboardProps) {
           <span className="font-medium text-sm">Reset Data</span>
         </button>
       </header>
+
+      {/* User Stats Widgets */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-4"
+        >
+          <div className="p-3 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-xl">
+            <Award size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Level {userStats.level}</p>
+            <div className="flex items-center gap-2">
+              <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden w-16">
+                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(xpProgress, 100)}%` }}></div>
+              </div>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{userStats.xp} XP</span>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-4"
+        >
+          <div className="p-3 bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 rounded-xl">
+            <Flame size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Streak</p>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">{userStats.streak} Hari</p>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-4"
+        >
+          <div className="p-3 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-xl">
+            <Star size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Amal Baik</p>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">{userStats.totalGoodDeeds}</p>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-4"
+        >
+          <div className="p-3 bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400 rounded-xl">
+            <ShieldCheck size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Dosa Dihindari</p>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">{userStats.totalSinsAvoided}</p>
+          </div>
+        </motion.div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Battery Card */}

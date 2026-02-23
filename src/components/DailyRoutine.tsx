@@ -1,7 +1,8 @@
 import { BidayatState, Task } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, Circle, Sun, Moon, Sunset, Sunrise, Lock, X } from 'lucide-react';
+import { CheckCircle2, Circle, Sun, Moon, Sunset, Sunrise, Lock, X, MapPin } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { usePrayerTimes } from '../hooks/usePrayerTimes';
 
 interface DailyRoutineProps {
   state: BidayatState;
@@ -11,29 +12,43 @@ interface DailyRoutineProps {
 export default function DailyRoutine({ state, onToggleTask }: DailyRoutineProps) {
   const timeGroups = ['Morning', 'Afternoon', 'Evening', 'Night'] as const;
   const timeLabels: Record<string, string> = {
-    'Morning': 'Pagi',
-    'Afternoon': 'Siang',
-    'Evening': 'Petang',
-    'Night': 'Malam'
+    'Morning': 'Pagi (Subuh - Dzuhur)',
+    'Afternoon': 'Siang (Dzuhur - Maghrib)',
+    'Evening': 'Petang (Maghrib - Isya)',
+    'Night': 'Malam (Isya - Subuh)'
   };
 
-  const [currentHour, setCurrentHour] = useState(new Date().getHours());
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const { prayerTimes, locationError, isLoading } = usePrayerTimes();
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentHour(new Date().getHours()), 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
+  // Helper to parse "HH:MM" into a Date object for today
+  const parseTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const d = new Date();
+    d.setHours(hours, minutes, 0, 0);
+    return d;
+  };
+
   const isGroupActive = (group: string) => {
-    // For demonstration/testing, we can uncomment the next line to unlock everything
-    // return true; 
+    if (!prayerTimes) return true; // Fallback to unlocked if API fails
+
+    const now = currentTime.getTime();
+    const fajr = parseTime(prayerTimes.Fajr).getTime();
+    const dhuhr = parseTime(prayerTimes.Dhuhr).getTime();
+    const maghrib = parseTime(prayerTimes.Maghrib).getTime();
+    const isha = parseTime(prayerTimes.Isha).getTime();
 
     switch (group) {
-      case 'Morning': return currentHour >= 4 && currentHour < 12;
-      case 'Afternoon': return currentHour >= 12 && currentHour < 17;
-      case 'Evening': return currentHour >= 17 && currentHour < 20;
-      case 'Night': return currentHour >= 20 || currentHour < 4;
+      case 'Morning': return now >= fajr && now < dhuhr;
+      case 'Afternoon': return now >= dhuhr && now < maghrib;
+      case 'Evening': return now >= maghrib && now < isha;
+      case 'Night': return now >= isha || now < fajr;
       default: return false;
     }
   };
@@ -68,9 +83,20 @@ export default function DailyRoutine({ state, onToggleTask }: DailyRoutineProps)
         <p className="text-slate-500 dark:text-slate-400 mt-1 md:mt-2 text-base md:text-lg">
           Panduan adab dan amalan dari bangun tidur hingga tidur kembali.
         </p>
-        <p className="text-xs text-slate-400 mt-2">
-          Waktu Saat Ini: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-3">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 inline-flex items-center gap-2">
+            Waktu Saat Ini: <span className="font-bold text-emerald-600 dark:text-emerald-400">{currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </p>
+          {isLoading ? (
+            <p className="text-xs text-slate-400 animate-pulse">Menyesuaikan jadwal sholat lokal...</p>
+          ) : prayerTimes ? (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <MapPin size={12} /> Jadwal sholat tersinkronisasi
+            </p>
+          ) : (
+            <p className="text-xs text-amber-600 dark:text-amber-400">{locationError}</p>
+          )}
+        </div>
       </header>
 
       <div className="space-y-10">

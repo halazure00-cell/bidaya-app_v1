@@ -10,6 +10,14 @@ export const quotes: Quote[] = [
     translation: "Jauhilah hasad (dengki), karena sesungguhnya hasad itu memakan kebaikan sebagaimana api memakan kayu bakar."
   },
   {
+    arabic: "الرِّيَاءُ شِرْكٌ أَصْغَرُ، يُحْبِطُ العَمَلَ كَمَا يُحْبِطُهُ الشِّرْكُ الأَكْبَرُ",
+    translation: "Riya (pamer) adalah syirik kecil, ia menggugurkan amal sebagaimana syirik besar menggugurkannya."
+  },
+  {
+    arabic: "العُجْبُ يَهْدِمُ المَحَاسِنَ، وَيُعْمِي البَصِيرَةَ عَنْ رُؤْيَةِ العُيُوبِ",
+    translation: "Ujub (bangga diri) menghancurkan kebaikan-kebaikan, dan membutakan mata hati dari melihat aib sendiri."
+  },
+  {
     arabic: "عَلَيْكَ بِمُرَاقَبَةِ اللهِ فِي السِّرِّ وَالعَلَانِيَةِ",
     translation: "Hendaklah engkau senantiasa merasa diawasi oleh Allah, baik dalam keadaan sepi maupun ramai."
   },

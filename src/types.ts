@@ -52,6 +52,14 @@ export interface NetworkProtocol {
   completed: boolean;
 }
 
+export interface UserStats {
+  level: number;
+  xp: number;
+  streak: number;
+  totalGoodDeeds: number;
+  totalSinsAvoided: number;
+}
+
 export interface BidayatState {
   tasks: Task[];
   bodyScans: BodyPartScan[];
@@ -60,4 +68,6 @@ export interface BidayatState {
   todayPrayer?: PrayerLog;
   prayerStats?: PrayerLog[];
   networkProtocols: NetworkProtocol[];
+  userStats?: UserStats;
+  lastResetDate?: string;
 }

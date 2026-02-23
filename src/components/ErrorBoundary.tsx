@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { RotateCcw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -43,7 +44,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return (this as any).props.children;
   }
 }
 
