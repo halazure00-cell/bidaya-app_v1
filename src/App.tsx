@@ -11,6 +11,7 @@ import ConfirmationModal from './components/ConfirmationModal';
 import Toast, { ToastType } from './components/Toast';
 import { BidayatState, PrayerLog } from './types';
 import ErrorBoundary from './components/ErrorBoundary';
+import { store } from './lib/store';
 
 type Tab = 'dashboard' | 'routine' | 'scanner' | 'wirid' | 'prayer' | 'adab';
 
@@ -48,35 +49,21 @@ export default function App() {
     }
   }, [darkMode]);
 
-  const fetchState = () => {
+  const loadState = () => {
     setIsLoading(true);
-    setError(null);
-    fetch('/api/state')
-      .then(async res => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        const text = await res.text();
-        try {
-          return JSON.parse(text);
-        } catch (e) {
-          console.error('API returned non-JSON response:', text.substring(0, 150));
-          throw new Error('API routing error: Received HTML instead of JSON data. Check Vercel configuration.');
-        }
-      })
-      .then(data => {
-        setState(data);
-        setIsLoading(false);
-      })
-      .catch(err => {
-        console.error('Failed to fetch state:', err);
-        setError(err.message || 'Gagal memuat data. Periksa koneksi Anda dan coba lagi.');
-        setIsLoading(false);
-      });
+    try {
+      const localState = store.getState();
+      setState(localState);
+    } catch (err: any) {
+      console.error('Failed to load state:', err);
+      setError('Gagal memuat data dari penyimpanan lokal.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchState();
+    loadState();
     
     // Check for restart flag
     if (sessionStorage.getItem('justRestarted')) {
@@ -89,139 +76,78 @@ export default function App() {
     setToast({ message, type });
   };
 
-  // Handlers to update state via API
-  const toggleTask = async (id: string) => {
+  // Handlers to update state locally
+  const toggleTask = (id: string) => {
     if (!state) return;
-    
-    // Optimistic update
-    const oldTasks = state.tasks;
-    setState(s => s ? ({
-      ...s,
-      tasks: s.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
-    }) : null);
-
-    try {
-      await fetch(`/api/tasks/${id}/toggle`, { method: 'POST' });
-    } catch (error) {
-      console.error('Failed to toggle task:', error);
-      setState(s => s ? ({ ...s, tasks: oldTasks }) : null); // Revert
-    }
+    const newState = {
+      ...state,
+      tasks: state.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
+    };
+    setState(newState);
+    store.saveState(newState);
   };
 
-  const toggleBodyPart = async (id: string) => {
+  const toggleBodyPart = (id: string) => {
     if (!state) return;
-
-    const oldScans = state.bodyScans;
-    setState(s => s ? ({
-      ...s,
-      bodyScans: s.bodyScans.map(b => b.id === id ? { ...b, errorCommitted: !b.errorCommitted } : b)
-    }) : null);
-
-    try {
-      await fetch(`/api/body-scans/${id}/toggle`, { method: 'POST' });
-    } catch (error) {
-      console.error('Failed to toggle body scan:', error);
-      setState(s => s ? ({ ...s, bodyScans: oldScans }) : null);
-    }
+    const newState = {
+      ...state,
+      bodyScans: state.bodyScans.map(b => b.id === id ? { ...b, errorCommitted: !b.errorCommitted } : b)
+    };
+    setState(newState);
+    store.saveState(newState);
   };
 
-  const changeHeartDisease = async (id: string, level: number) => {
+  const changeHeartDisease = (id: string, level: number) => {
     if (!state) return;
-
-    const oldDiseases = state.heartDiseases;
-    setState(s => s ? ({
-      ...s,
-      heartDiseases: s.heartDiseases.map(h => h.id === id ? { ...h, level } : h)
-    }) : null);
-
-    try {
-      await fetch(`/api/heart-diseases/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level })
-      });
-    } catch (error) {
-      console.error('Failed to update heart disease:', error);
-      setState(s => s ? ({ ...s, heartDiseases: oldDiseases }) : null);
-    }
+    const newState = {
+      ...state,
+      heartDiseases: state.heartDiseases.map(h => h.id === id ? { ...h, level } : h)
+    };
+    setState(newState);
+    store.saveState(newState);
   };
 
-  const updateWirid = async (id: string, count: number) => {
+  const updateWirid = (id: string, count: number) => {
     if (!state) return;
-
-    const oldWirid = state.wiridLogs;
-    setState(s => s ? ({
-      ...s,
-      wiridLogs: s.wiridLogs.map(w => w.id === id ? { ...w, count } : w)
-    }) : null);
-
-    try {
-      await fetch(`/api/wirid/${id}/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count })
-      });
-    } catch (error) {
-      console.error('Failed to update wirid:', error);
-      setState(s => s ? ({ ...s, wiridLogs: oldWirid }) : null);
-    }
+    const newState = {
+      ...state,
+      wiridLogs: state.wiridLogs.map(w => w.id === id ? { ...w, count, lastUpdated: new Date().toISOString() } : w)
+    };
+    setState(newState);
+    store.saveState(newState);
   };
 
-  const togglePrayer = async (prayer: keyof Omit<PrayerLog, 'date'>, status: boolean) => {
+  const togglePrayer = (prayer: keyof Omit<PrayerLog, 'date'>, status: boolean) => {
     if (!state || !state.todayPrayer) return;
-
-    const oldPrayer = state.todayPrayer;
-    
-    // Optimistic update
-    setState(s => s ? ({
-      ...s,
-      todayPrayer: { ...s.todayPrayer!, [prayer]: status ? 1 : 0 },
-      // Update stats optimistically too if needed, but simpler to just wait for refetch or ignore for now
-      prayerStats: s.prayerStats?.map(p => p.date === oldPrayer.date ? { ...p, [prayer]: status ? 1 : 0 } : p)
-    }) : null);
-
-    try {
-      await fetch(`/api/prayers/${oldPrayer.date}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prayer, status })
-      });
-    } catch (error) {
-      console.error('Failed to toggle prayer:', error);
-      setState(s => s ? ({ ...s, todayPrayer: oldPrayer }) : null);
-    }
+    const val = status ? 1 : 0;
+    const newState = {
+      ...state,
+      todayPrayer: { ...state.todayPrayer, [prayer]: val },
+      prayerStats: state.prayerStats?.map(p => p.date === state.todayPrayer!.date ? { ...p, [prayer]: val } : p)
+    };
+    setState(newState);
+    store.saveState(newState);
   };
 
-  const toggleProtocol = async (id: string) => {
+  const toggleProtocol = (id: string) => {
     if (!state) return;
-
-    const oldProtocols = state.networkProtocols;
-    setState(s => s ? ({
-      ...s,
-      networkProtocols: s.networkProtocols.map(p => p.id === id ? { ...p, completed: !p.completed } : p)
-    }) : null);
-
-    try {
-      await fetch(`/api/network-protocols/${id}/toggle`, { method: 'POST' });
-    } catch (error) {
-      console.error('Failed to toggle protocol:', error);
-      setState(s => s ? ({ ...s, networkProtocols: oldProtocols }) : null);
-    }
+    const newState = {
+      ...state,
+      networkProtocols: state.networkProtocols.map(p => p.id === id ? { ...p, completed: !p.completed } : p)
+    };
+    setState(newState);
+    store.saveState(newState);
   };
 
   const handleResetClick = () => {
     setIsResetModalOpen(true);
   };
 
-  const confirmReset = async () => {
+  const confirmReset = () => {
     try {
-      const res = await fetch('/api/reset', { method: 'POST' });
-      if (res.ok) {
-        fetchState();
-        showToast('Data berhasil di-reset.', 'success');
-      } else {
-        throw new Error('Failed to reset');
-      }
+      const resetState = store.resetState();
+      setState(resetState);
+      showToast('Data berhasil di-reset.', 'success');
     } catch (error) {
       console.error('Failed to reset data:', error);
       showToast('Gagal me-reset data. Silakan coba lagi.', 'error');
