@@ -27,6 +27,17 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user && _event === 'SIGNED_IN') {
+        // Automatically sync when signing in
+        store.syncFromSupabase().then(syncedState => {
+          if (syncedState) {
+            onImport(syncedState);
+          } else {
+            // Push current state if no cloud state exists
+            store.saveState(state);
+          }
+        });
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -66,12 +77,15 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
       const syncedState = await store.syncFromSupabase();
       if (syncedState) {
         onImport(syncedState);
+        alert('Sinkronisasi berhasil! Data terbaru telah dimuat.');
       } else {
         // If no state in supabase, push current state
         await store.saveState(state);
+        alert('Sinkronisasi berhasil! Data Anda telah disimpan ke cloud.');
       }
     } catch (error) {
       console.error(error);
+      alert('Gagal melakukan sinkronisasi dengan cloud.');
     } finally {
       setIsSyncing(false);
     }
