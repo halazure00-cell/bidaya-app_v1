@@ -52,11 +52,17 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     fetch('/api/state')
-      .then(res => {
+      .then(async res => {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
-        return res.json();
+        const text = await res.text();
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          console.error('API returned non-JSON response:', text.substring(0, 150));
+          throw new Error('API routing error: Received HTML instead of JSON data. Check Vercel configuration.');
+        }
       })
       .then(data => {
         setState(data);
@@ -64,7 +70,7 @@ export default function App() {
       })
       .catch(err => {
         console.error('Failed to fetch state:', err);
-        setError('Gagal memuat data. Periksa koneksi Anda dan coba lagi.');
+        setError(err.message || 'Gagal memuat data. Periksa koneksi Anda dan coba lagi.');
         setIsLoading(false);
       });
   };
