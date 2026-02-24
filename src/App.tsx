@@ -15,13 +15,15 @@ import { BidayatState, PrayerLog } from './types';
 import ErrorBoundary from './components/ErrorBoundary';
 import { store, addXP } from './lib/store';
 
-type Tab = 'dashboard' | 'prayer' | 'routine' | 'scanner' | 'adab' | 'wirid' | 'settings' | 'ai';
+type Tab = 'dashboard' | 'prayer' | 'routine' | 'scanner' | 'adab' | 'wirid' | 'settings';
 
 export default function App() {
   const [state, setState] = useState<BidayatState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [isAiOpen, setIsAiOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Initialize dark mode from localStorage or system preference
   const [darkMode, setDarkMode] = useState(() => {
@@ -271,7 +273,6 @@ export default function App() {
     { id: 'scanner', label: 'Muhasabah', icon: Activity },
     { id: 'adab', label: 'Adab', icon: HandHeart },
     { id: 'wirid', label: 'Wirid', icon: Fingerprint },
-    { id: 'ai', label: 'AI Asisten', icon: Sparkles },
   ] as const;
 
   return (
@@ -401,13 +402,48 @@ export default function App() {
                 {activeTab === 'scanner' && <Scanner state={state} onToggleBodyPart={toggleBodyPart} onChangeHeartDisease={changeHeartDisease} />}
                 {activeTab === 'adab' && <AdabTracker state={state} onToggleProtocol={toggleProtocol} />}
                 {activeTab === 'wirid' && <Wirid state={state} onUpdateWirid={updateWirid} />}
-                {activeTab === 'ai' && <AIMuhasabah state={state} />}
-                {activeTab === 'settings' && <SettingsPanel state={state} onImport={(newState) => { setState(newState); store.saveState(newState); showToast('Data berhasil diimpor', 'success'); }} />}
+                {activeTab === 'settings' && <SettingsPanel state={state} onImport={(newState) => { setState(newState); store.saveState(newState); showToast('Data berhasil diimpor', 'success'); }} showToast={showToast} />}
               </motion.div>
             </AnimatePresence>
           </div>
         </main>
       </div>
+
+      {/* AI Floating Button */}
+      <motion.div
+        drag
+        dragMomentum={false}
+        onDragStart={() => setIsDragging(true)}
+        onDragEnd={() => {
+          setTimeout(() => setIsDragging(false), 150);
+        }}
+        className="fixed bottom-20 right-6 z-40"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <button
+          onClick={() => {
+            if (!isDragging) setIsAiOpen(true);
+          }}
+          className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-500/30 border-2 border-white/20"
+        >
+          <Moon size={24} className="fill-current" />
+        </button>
+      </motion.div>
+
+      {/* AI Modal */}
+      <AnimatePresence>
+        {isAiOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed inset-0 md:inset-auto md:bottom-24 md:right-6 md:w-[400px] md:h-[600px] z-50 flex flex-col bg-white dark:bg-slate-900 md:rounded-3xl md:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
+          >
+            <AIMuhasabah state={state} onClose={() => setIsAiOpen(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Global Components */}
       <ConfirmationModal

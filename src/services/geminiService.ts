@@ -69,8 +69,34 @@ export const createMuhasabahChat = () => {
       Berikan nasihat yang lembut, menenangkan, namun tegas dalam prinsip syariat. 
       Gunakan bahasa Indonesia yang baik, sopan, dan penuh empati. 
       Sesekali kutip ayat Al-Quran atau Hadits yang relevan (sertakan teks Arab dan artinya jika memungkinkan).
-      Jangan memberikan fatwa hukum yang rumit, fokuslah pada penyucian jiwa (Tazkiyatun Nafs) dan perbaikan akhlak.`,
+      Jangan memberikan fatwa hukum yang rumit, fokuslah pada penyucian jiwa (Tazkiyatun Nafs) dan perbaikan akhlak.
+      PENTING: Jangan gunakan format markdown seperti tanda bintang (*), pagar (#), atau format lainnya. Gunakan teks biasa dengan paragraf yang jelas.`,
       temperature: 0.7,
     },
   });
+};
+
+export const generateSpeech = async (text: string): Promise<string | null> => {
+  if (!apiKey) throw new Error("API key not found");
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text }] }],
+      config: {
+        responseModalities: ["AUDIO"],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Puck' },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    return base64Audio || null;
+  } catch (error) {
+    console.error("Error generating speech:", error);
+    return null;
+  }
 };

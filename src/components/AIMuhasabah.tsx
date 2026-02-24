@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BidayatState } from '../types';
-import { createMuhasabahChat } from '../services/geminiService';
-import { Send, User, Bot, Loader2, Sparkles } from 'lucide-react';
+import { createMuhasabahChat, generateSpeech } from '../services/geminiService';
+import { Send, User, Bot, Loader2, Moon, Volume2, Square, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 
@@ -13,9 +13,10 @@ interface ChatMessage {
 
 interface AIMuhasabahProps {
   state: BidayatState;
+  onClose?: () => void;
 }
 
-export default function AIMuhasabah({ state }: AIMuhasabahProps) {
+export default function AIMuhasabah({ state, onClose }: AIMuhasabahProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -25,8 +26,11 @@ export default function AIMuhasabah({ state }: AIMuhasabahProps) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     try {
@@ -34,7 +38,80 @@ export default function AIMuhasabah({ state }: AIMuhasabahProps) {
     } catch (error) {
       console.error("Failed to initialize chat:", error);
     }
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
   }, []);
+
+  const createWavUrl = (base64: string, sampleRate: number = 24000): string => {
+    const binaryString = window.atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const buffer = new ArrayBuffer(44 + bytes.length);
+    const view = new DataView(buffer);
+
+    const writeString = (view: DataView, offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + bytes.length, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, bytes.length, true);
+
+    const pcmData = new Uint8Array(buffer, 44);
+    pcmData.set(bytes);
+
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    return URL.createObjectURL(blob);
+  };
+
+  const handlePlayAudio = async (id: string, text: string) => {
+    if (playingId === id) {
+      audioRef.current?.pause();
+      setPlayingId(null);
+      return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    try {
+      setIsGeneratingAudio(id);
+      const base64 = await generateSpeech(text);
+      if (base64) {
+        const audioUrl = createWavUrl(base64, 24000);
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        audio.onended = () => setPlayingId(null);
+        audio.play().catch(e => console.error("Error playing audio:", e));
+        setPlayingId(id);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGeneratingAudio(null);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -82,16 +159,26 @@ export default function AIMuhasabah({ state }: AIMuhasabahProps) {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] md:h-[calc(100vh-8rem)] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative">
-      <div className="p-4 md:p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
-          <Sparkles size={20} />
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900 overflow-hidden relative">
+      {onClose && (
+        <div className="p-4 md:p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+              <Moon size={20} className="fill-current" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">AI Muhasabah</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Teman renungan spiritual Anda</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+          >
+            <X size={24} />
+          </button>
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">AI Muhasabah</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Teman renungan spiritual Anda</p>
-        </div>
-      </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
         <AnimatePresence initial={false}>
@@ -107,7 +194,7 @@ export default function AIMuhasabah({ state }: AIMuhasabahProps) {
                   ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400' 
                   : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400'
               }`}>
-                {msg.role === 'user' ? <User size={18} /> : <Bot size={18} />}
+                {msg.role === 'user' ? <User size={18} /> : <Moon size={18} className="fill-current" />}
               </div>
               
               <div className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 ${
@@ -118,8 +205,28 @@ export default function AIMuhasabah({ state }: AIMuhasabahProps) {
                 {msg.role === 'user' ? (
                   <p className="whitespace-pre-wrap text-sm md:text-base">{msg.content}</p>
                 ) : (
-                  <div className="prose prose-sm md:prose-base dark:prose-invert prose-p:leading-relaxed prose-a:text-indigo-500 max-w-none">
-                    <Markdown>{msg.content}</Markdown>
+                  <div className="flex flex-col gap-2">
+                    <div className="prose prose-sm md:prose-base dark:prose-invert prose-p:leading-relaxed max-w-none">
+                      <div className="whitespace-pre-wrap bg-gradient-to-br from-indigo-700 to-purple-700 dark:from-indigo-300 dark:to-purple-300 bg-clip-text text-transparent font-medium">
+                        {msg.content}
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-1">
+                      <button
+                        onClick={() => handlePlayAudio(msg.id, msg.content)}
+                        disabled={isGeneratingAudio === msg.id}
+                        className="p-1.5 rounded-full text-indigo-500 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors disabled:opacity-50"
+                        title={playingId === msg.id ? "Hentikan Suara" : "Dengarkan Nasihat"}
+                      >
+                        {isGeneratingAudio === msg.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : playingId === msg.id ? (
+                          <Square size={16} className="fill-current" />
+                        ) : (
+                          <Volume2 size={16} />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -134,7 +241,7 @@ export default function AIMuhasabah({ state }: AIMuhasabahProps) {
             className="flex gap-4"
           >
             <div className="shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400 flex items-center justify-center">
-              <Bot size={18} />
+              <Moon size={18} className="fill-current" />
             </div>
             <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-4 flex items-center gap-2">
               <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

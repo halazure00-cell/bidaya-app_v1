@@ -5,12 +5,15 @@ import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { store } from '../lib/store';
 
+import { ToastType } from './Toast';
+
 interface SettingsPanelProps {
   state: BidayatState;
   onImport: (newState: BidayatState) => void;
+  showToast: (message: string, type: ToastType) => void;
 }
 
-export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
+export default function SettingsPanel({ state, onImport, showToast }: SettingsPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState<any>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -51,7 +54,7 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
-      alert('Browser Anda tidak mendukung notifikasi.');
+      showToast('Browser Anda tidak mendukung notifikasi.', 'error');
       return;
     }
     const permission = await Notification.requestPermission();
@@ -61,6 +64,7 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
         body: 'Notifikasi berhasil diaktifkan. Anda akan menerima pengingat waktu sholat.',
         icon: '/icon.svg'
       });
+      showToast('Notifikasi berhasil diaktifkan.', 'success');
     }
   };
 
@@ -74,7 +78,7 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
           password,
         });
         if (error) throw error;
-        alert('Pendaftaran berhasil! Silakan cek email Anda untuk verifikasi (jika diaktifkan di Supabase), atau langsung login.');
+        showToast('Pendaftaran berhasil! Silakan cek email Anda untuk verifikasi, atau langsung login.', 'success');
         setAuthMode('login');
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -82,11 +86,12 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
           password,
         });
         if (error) throw error;
+        showToast('Berhasil login!', 'success');
         // Login success is handled by onAuthStateChange
       }
     } catch (error: any) {
       console.error('Auth error:', error);
-      alert(`Gagal: ${error.message}`);
+      showToast(`Gagal: ${error.message}`, 'error');
     } finally {
       setIsAuthLoading(false);
     }
@@ -94,6 +99,7 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    showToast('Berhasil logout.', 'success');
   };
 
   const handleManualSync = async () => {
@@ -102,15 +108,15 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
       const syncedState = await store.syncFromSupabase();
       if (syncedState) {
         onImport(syncedState);
-        alert('Sinkronisasi berhasil! Data terbaru telah dimuat.');
+        showToast('Sinkronisasi berhasil! Data terbaru telah dimuat.', 'success');
       } else {
         // If no state in supabase, push current state
         await store.saveState(state);
-        alert('Sinkronisasi berhasil! Data Anda telah disimpan ke cloud.');
+        showToast('Sinkronisasi berhasil! Data Anda telah disimpan ke cloud.', 'success');
       }
     } catch (error) {
       console.error(error);
-      alert('Gagal melakukan sinkronisasi dengan cloud.');
+      showToast('Gagal melakukan sinkronisasi dengan cloud.', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -148,7 +154,7 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
         onImport(parsedState);
       } catch (error) {
         console.error('Failed to parse backup file:', error);
-        alert('Gagal mengimpor data. Pastikan file backup valid.');
+        showToast('Gagal mengimpor data. Pastikan file backup valid.', 'error');
       }
     };
     reader.readAsText(file);
