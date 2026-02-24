@@ -1,8 +1,10 @@
 import { BidayatState } from '../types';
-import { Battery, BatteryWarning, Flame, ShieldAlert, ShieldCheck, Zap, Heart, RotateCcw, Quote, Bell, X, RefreshCw, Info, Star, Award, TrendingUp } from 'lucide-react';
+import { Battery, BatteryWarning, Flame, ShieldAlert, ShieldCheck, Zap, Heart, RotateCcw, Quote, Bell, X, RefreshCw, Info, Star, Award, TrendingUp, Calendar, Clock, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { quotes } from '../data/quotes';
+import moment from 'moment-hijri';
+import { generateDailyNasihat } from '../services/geminiService';
 
 interface DashboardProps {
   state: BidayatState;
@@ -93,9 +95,50 @@ export default function Dashboard({ state, onReset }: DashboardProps) {
   // Dynamic Quote State
   const [currentQuote, setCurrentQuote] = useState(quotes[0]);
   const [isQuoteVisible, setIsQuoteVisible] = useState(true);
+  const [isAiQuote, setIsAiQuote] = useState(false);
+  const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
+  
+  // Time & Date State
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format Hijri Date
+  // moment-hijri uses 'i' prefix for Hijri formatting tokens
+  const hijriDate = moment(currentTime).format('iD iMMMM iYYYY');
+  const gregorianDate = moment(currentTime).format('D MMMM YYYY');
+  const timeString = moment(currentTime).format('HH:mm');
+  const secondsString = moment(currentTime).format('ss');
 
   useEffect(() => {
-    // Nasehat System: Select quote based on highest disease
+    // Try to get AI Nasihat first
+    const fetchAiNasihat = async () => {
+      if (!process.env.GEMINI_API_KEY) {
+        setFallbackQuote();
+        return;
+      }
+      
+      try {
+        setIsGeneratingQuote(true);
+        const nasihat = await generateDailyNasihat(state);
+        setCurrentQuote(nasihat);
+        setIsAiQuote(true);
+      } catch (error) {
+        console.error("Failed to get AI Nasihat:", error);
+        setFallbackQuote();
+      } finally {
+        setIsGeneratingQuote(false);
+      }
+    };
+
+    fetchAiNasihat();
+  }, [hasad, riya, ujub]);
+
+  const setFallbackQuote = () => {
+    setIsAiQuote(false);
     let relevantQuotes = quotes;
     
     if (hasad > 6) {
@@ -106,29 +149,33 @@ export default function Dashboard({ state, onReset }: DashboardProps) {
       relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('ujub') || q.translation.toLowerCase().includes('bangga'));
     }
     
-    // Fallback if no specific quotes found
     if (relevantQuotes.length === 0) relevantQuotes = quotes;
-
     const randomIndex = Math.floor(Math.random() * relevantQuotes.length);
     setCurrentQuote(relevantQuotes[randomIndex]);
-  }, [hasad, riya, ujub]);
+  };
 
-  const refreshQuote = () => {
+  const refreshQuote = async () => {
     setIsQuoteVisible(false);
-    setTimeout(() => {
-      let relevantQuotes = quotes;
-      if (hasad > 6) relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('hasad') || q.translation.toLowerCase().includes('dengki'));
-      else if (riya > 6) relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('riya') || q.translation.toLowerCase().includes('pamer'));
-      else if (ujub > 6) relevantQuotes = quotes.filter(q => q.translation.toLowerCase().includes('ujub') || q.translation.toLowerCase().includes('bangga'));
-      if (relevantQuotes.length === 0) relevantQuotes = quotes;
+    
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        setIsGeneratingQuote(true);
+        const nasihat = await generateDailyNasihat(state);
+        setCurrentQuote(nasihat);
+        setIsAiQuote(true);
+        setIsQuoteVisible(true);
+        setIsGeneratingQuote(false);
+        return;
+      } catch (error) {
+        console.error("Failed to get AI Nasihat:", error);
+      }
+    }
 
-      let newIndex;
-      do {
-        newIndex = Math.floor(Math.random() * relevantQuotes.length);
-      } while (relevantQuotes[newIndex].arabic === currentQuote.arabic && relevantQuotes.length > 1);
-      
-      setCurrentQuote(relevantQuotes[newIndex]);
+    // Fallback to static quotes
+    setTimeout(() => {
+      setFallbackQuote();
       setIsQuoteVisible(true);
+      setIsGeneratingQuote(false);
     }, 300);
   };
 
@@ -139,14 +186,31 @@ export default function Dashboard({ state, onReset }: DashboardProps) {
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Ahwalul Qalb</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1 md:mt-2 text-base md:text-lg">Ringkasan keadaan hati dan kualitas amal hari ini.</p>
         </div>
-        <button
-          onClick={onReset}
-          className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:text-red-400 dark:hover:border-red-800 transition-all shadow-sm hover:shadow active:scale-95"
-          title="Reset all progress data"
-        >
-          <RotateCcw size={18} className="group-hover:-rotate-180 transition-transform duration-500" />
-          <span className="font-medium text-sm">Reset Data</span>
-        </button>
+        
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* Minimalist Time & Date Widget */}
+          <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="flex flex-col items-end border-r border-slate-200 dark:border-slate-700 pr-3">
+              <div className="flex items-baseline gap-1 text-slate-900 dark:text-white">
+                <span className="text-xl font-bold tracking-tight">{timeString}</span>
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 w-4">{secondsString}</span>
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{hijriDate} H</span>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{gregorianDate}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={onReset}
+            className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:text-red-400 dark:hover:border-red-800 transition-all shadow-sm hover:shadow active:scale-95 h-full"
+            title="Reset all progress data"
+          >
+            <RotateCcw size={18} className="group-hover:-rotate-180 transition-transform duration-500" />
+            <span className="font-medium text-sm">Reset Data</span>
+          </button>
+        </div>
       </header>
 
       {/* User Stats Widgets */}
@@ -376,17 +440,20 @@ export default function Dashboard({ state, onReset }: DashboardProps) {
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                        <Bell size={16} />
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isAiQuote ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400' : 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'}`}>
+                        {isAiQuote ? <Sparkles size={16} /> : <Bell size={16} />}
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-300">Nasihat Hari Ini</span>
+                      <span className={`text-xs font-bold uppercase tracking-wider ${isAiQuote ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-500 dark:text-indigo-300'}`}>
+                        {isAiQuote ? 'Nasihat AI Personal' : 'Nasihat Hari Ini'}
+                      </span>
                     </div>
                     <button 
                       onClick={refreshQuote}
-                      className="p-1.5 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-400 transition-colors"
+                      disabled={isGeneratingQuote}
+                      className={`p-1.5 rounded-full transition-colors ${isAiQuote ? 'hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-400' : 'hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-400'} ${isGeneratingQuote ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title="Nasihat Baru"
                     >
-                      <RefreshCw size={14} />
+                      <RefreshCw size={14} className={isGeneratingQuote ? 'animate-spin' : ''} />
                     </button>
                   </div>
                   

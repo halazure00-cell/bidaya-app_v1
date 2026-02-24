@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, CheckSquare, LayoutDashboard, Moon, Sun, RotateCcw, Fingerprint, RotateCw, Sunrise, HandHeart, Settings } from 'lucide-react';
+import { Activity, CheckSquare, LayoutDashboard, Moon, Sun, RotateCcw, Fingerprint, RotateCw, Sunrise, HandHeart, Settings, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Dashboard from './components/Dashboard';
 import DailyRoutine from './components/DailyRoutine';
@@ -8,13 +8,14 @@ import Wirid from './components/Wirid';
 import PrayerTracker from './components/PrayerTracker';
 import AdabTracker from './components/AdabTracker';
 import SettingsPanel from './components/SettingsPanel';
+import AIMuhasabah from './components/AIMuhasabah';
 import ConfirmationModal from './components/ConfirmationModal';
 import Toast, { ToastType } from './components/Toast';
 import { BidayatState, PrayerLog } from './types';
 import ErrorBoundary from './components/ErrorBoundary';
 import { store, addXP } from './lib/store';
 
-type Tab = 'dashboard' | 'prayer' | 'routine' | 'scanner' | 'adab' | 'wirid' | 'settings';
+type Tab = 'dashboard' | 'prayer' | 'routine' | 'scanner' | 'adab' | 'wirid' | 'settings' | 'ai';
 
 export default function App() {
   const [state, setState] = useState<BidayatState | null>(null);
@@ -163,10 +164,10 @@ export default function App() {
     if (!state || !state.todayPrayer) return;
     const val = status ? 1 : 0;
     
-    let newState = {
+    let newState: BidayatState = {
       ...state,
       todayPrayer: { ...state.todayPrayer, [prayer]: val },
-      prayerStats: state.prayerStats?.map(p => p.date === state.todayPrayer!.date ? { ...p, [prayer]: val } : p)
+      prayerStats: state.prayerStats?.map(p => p.date === state.todayPrayer!.date ? { ...p, [prayer]: val } : p) || []
     };
 
     if (status) {
@@ -270,6 +271,7 @@ export default function App() {
     { id: 'scanner', label: 'Muhasabah', icon: Activity },
     { id: 'adab', label: 'Adab', icon: HandHeart },
     { id: 'wirid', label: 'Wirid', icon: Fingerprint },
+    { id: 'ai', label: 'AI Asisten', icon: Sparkles },
   ] as const;
 
   return (
@@ -399,6 +401,7 @@ export default function App() {
                 {activeTab === 'scanner' && <Scanner state={state} onToggleBodyPart={toggleBodyPart} onChangeHeartDisease={changeHeartDisease} />}
                 {activeTab === 'adab' && <AdabTracker state={state} onToggleProtocol={toggleProtocol} />}
                 {activeTab === 'wirid' && <Wirid state={state} onUpdateWirid={updateWirid} />}
+                {activeTab === 'ai' && <AIMuhasabah state={state} />}
                 {activeTab === 'settings' && <SettingsPanel state={state} onImport={(newState) => { setState(newState); store.saveState(newState); showToast('Data berhasil diimpor', 'success'); }} />}
               </motion.div>
             </AnimatePresence>
