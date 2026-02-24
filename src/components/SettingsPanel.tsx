@@ -1,5 +1,5 @@
 import { BidayatState } from '../types';
-import { Download, Upload, ShieldAlert, FileJson, Cloud, LogOut, LogIn, Bell } from 'lucide-react';
+import { Download, Upload, ShieldAlert, FileJson, Cloud, LogOut, LogIn, Bell, Mail, Lock, UserPlus } from 'lucide-react';
 import { motion } from 'motion/react';
 import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -15,6 +15,12 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
   const [user, setUser] = useState<any>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState<NotificationPermission>('default');
+
+  // Auth state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -58,13 +64,32 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
     }
   };
 
-  const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthLoading(true);
+    try {
+      if (authMode === 'signup') {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        alert('Pendaftaran berhasil! Silakan cek email Anda untuk verifikasi (jika diaktifkan di Supabase), atau langsung login.');
+        setAuthMode('login');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        // Login success is handled by onAuthStateChange
       }
-    });
+    } catch (error: any) {
+      console.error('Auth error:', error);
+      alert(`Gagal: ${error.message}`);
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -185,18 +210,61 @@ export default function SettingsPanel({ state, onImport }: SettingsPanelProps) {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+          <form onSubmit={handleEmailAuth} className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
               Login untuk mengaktifkan sinkronisasi cloud. Data Anda akan aman dan dapat diakses dari perangkat mana saja.
             </p>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  placeholder="nama@email.com"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
             <button
-              onClick={handleLogin}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors shadow-sm active:scale-95"
+              type="submit"
+              disabled={isAuthLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors shadow-sm active:scale-95 disabled:opacity-70"
             >
-              <LogIn size={18} />
-              Login dengan Google
+              {isAuthLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <LogIn size={18} />
+                  {authMode === 'login' ? 'Login' : 'Daftar'}
+                </>
+              )}
             </button>
-          </div>
+            
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                {authMode === 'login' ? 'Belum punya akun? Daftar sekarang' : 'Sudah punya akun? Login'}
+              </button>
+            </div>
+          </form>
         )}
       </motion.div>
 
